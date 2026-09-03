@@ -1,7 +1,7 @@
 import { COL, FONT, makeButton, fitCamera, DESIGN_W, DESIGN_H } from '../ui/widgets.js';
 import { sfx } from '../ui/sfx.js';
 import { writeArticle, postMortem, finalReport, roundBriefing } from '../ui/newspaper.js';
-import { t, getLang } from '../i18n.js';
+import { t, getLang, fmtEuro } from '../i18n.js';
 import { submitScore, promptName } from '../net/scoreboard.js';
 import { beginCampaign, logEvent, flush as flushTelemetry } from '../net/telemetry.js';
 import {
@@ -12,6 +12,7 @@ import {
   acceptProposal, declineProposal, relationshipLabel,
   forecastBand, canSharpenForecast, sharpenForecast,
   canAskFavour, askFavour, oceanaLost, investmentCost, previewFlood,
+  boatsWereSent,
 } from '../model/gameState.js';
 import { runAllAI } from '../ai/mayorAI.js';
 import { gameImages, newsImages, queueMissing } from '../ui/assets.js';
@@ -47,9 +48,9 @@ export default class GameScene extends Phaser.Scene {
     if (queueMissing(this, gameImages()) > 0) {
       fitCamera(this);
       this.add.rectangle(DESIGN_W / 2, DESIGN_H / 2, DESIGN_W, DESIGN_H, COL.bg);
-      const txt = this.add.text(DESIGN_W / 2, DESIGN_H / 2, 'Loading…',
+      const txt = this.add.text(DESIGN_W / 2, DESIGN_H / 2, t('loading'),
         { fontFamily: FONT, fontSize: '20px', color: '#8aa0bd' }).setOrigin(0.5);
-      this.load.on('progress', (p) => txt.setText(`Loading… ${Math.round(p * 100)}%`));
+      this.load.on('progress', (p) => txt.setText(`${t('loading')} ${Math.round(p * 100)}%`));
     }
   }
 
@@ -635,7 +636,7 @@ export default class GameScene extends Phaser.Scene {
 
     // Realistic newspaper photo, chosen by the season's outcome.
     let imgKey = ({ calm: 'news_calm', mild: 'news_minor', damage: 'news_ruin', disaster: 'news_rescue' })[art.tone] || 'news_calm';
-    if ((gs.notifications || []).some((n) => n.includes('sent')) && (art.tone === 'calm' || art.tone === 'mild')) imgKey = 'news_cooperation';
+    if (boatsWereSent(gs.notifications) && (art.tone === 'calm' || art.tone === 'mild')) imgKey = 'news_cooperation';
     if (this.textures.exists(imgKey)) {
       add(this.add.image(cx, ty, imgKey).setDisplaySize(360, 202).setOrigin(0.5, 0));
       add(this.add.rectangle(cx, ty + 202 - 9, 360, 18, 0x1a1208, 0.85));
@@ -970,10 +971,7 @@ export default class GameScene extends Phaser.Scene {
   }
 
   // --- little fx -------------------------------------------------------------
-  euro(m) {
-    if (!m || m < 1) return '€0';
-    return m >= 1000 ? `€${(m / 1000).toFixed(1)}B` : `€${Math.round(m)}M`;
-  }
+  euro(m) { return fmtEuro(m); }
 
   popText(x, y, str, color) {
     const t = this.add.text(x, y, str, { fontFamily: FONT, fontSize: '18px', color, fontStyle: 'bold' }).setOrigin(0.5);
